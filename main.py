@@ -16,7 +16,15 @@ CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 def enviar_telegram(mensaje):
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     data = {"chat_id": CHAT_ID, "text": mensaje}
-    requests.post(url, data=data)
+    try:
+        r = requests.post(url, data=data)
+        if r.status_code != 200:
+            print(f"Error al enviar mensaje Telegram: {r.status_code} - {r.text}")
+        else:
+            print("Mensaje Telegram enviado correctamente.")
+    except Exception as e:
+        print(f"Excepción al enviar Telegram: {e}")
+
 
 def obtener_precio_binance_p2p(fiat, trans_type):
     url = "https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search"
