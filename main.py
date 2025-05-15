@@ -14,7 +14,7 @@ CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
 # === FUNCIONES ===
 
 def enviar_telegram(mensaje):
-    url = f"https://api.telegram.org/bot{7552465649:AAHFaGSFt-UaYyPyPvbwEJmy_ySgpgXNHzw}/sendMessage"
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     data = {"chat_id": CHAT_ID, "text": mensaje}
     requests.post(url, data=data)
 
