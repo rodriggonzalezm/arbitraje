@@ -30,7 +30,7 @@ def obtener_precio_binance_p2p(fiat, trans_type):
     url = "https://p2p.binance.com/bapi/c2c/v2/friendly/c2c/adv/search"
     data = {
         "page": 1,
-        "rows": 1,
+        "rows": 5,
         "payTypes": [],
         "asset": "USDT",
         "fiat": fiat,
@@ -42,51 +42,47 @@ def obtener_precio_binance_p2p(fiat, trans_type):
         r = requests.post(url, json=data, headers=headers, timeout=10)
         r.raise_for_status()
         res = r.json()
-        return float(res["data"][0]["adv"]["price"])
+        orders = res.get("data", [])
+        if not orders:
+            print(f"No se encontraron órdenes para {fiat} {trans_type}")
+            return None
+        total_amount = 0.0
+        total_price_volume = 0.0
+        for order in orders:
+            adv = order["adv"]
+            price = float(adv["price"])
+            amount = float(adv.get("minSingleTransAmount", 0))
+            if amount > 0:
+                total_amount += amount
+                total_price_volume += price * amount
+            else:
+                total_amount += 1
+                total_price_volume += price
+        if total_amount == 0:
+            return None
+        precio_promedio = total_price_volume / total_amount
+        return precio_promedio
     except Exception as e:
         print(f"Error obteniendo precio Binance P2P {fiat} {trans_type}: {e}")
-        return None
-
-def obtener_tipo_cambio_usd(destino):
-    # Usamos API pública para obtener tipo de cambio USD -> destino
-    url = "https://open.er-api.com/v6/latest/USD"
-    try:
-        r = requests.get(url, timeout=10)
-        r.raise_for_status()
-        data = r.json()
-        if data["result"] == "success" and destino in data["rates"]:
-            return float(data["rates"][destino])
-        else:
-            print(f"No se encontró tipo de cambio para USD->{destino}")
-            return None
-    except Exception as e:
-        print(f"Error obteniendo tipo de cambio USD->{destino}: {e}")
         return None
 
 def chequear_arbitraje():
     precio_compra_ars = obtener_precio_binance_p2p("ARS", "BUY")
     precio_venta_clp = obtener_precio_binance_p2p("CLP", "SELL")
 
-    if precio_compra_ars is None or precio_venta_clp is None:
-        print("❌ No se pudo obtener precio USDT en ARS o CLP")
+    if not precio_compra_ars or not precio_venta_clp:
+        print("❌ No se pudo obtener precio")
         return
 
-    # Calculamos cuántos USDT compramos con ARS
     usdt_comprados = CANTIDAD_ARS / precio_compra_ars
-    # Cuánto CLP obtenemos al vender esos USDT en Chile
     clp_recibidos = usdt_comprados * precio_venta_clp
 
-    # Obtener tipo de cambio USD -> CLP y USD -> ARS para convertir CLP a ARS
-    usd_clp = obtener_tipo_cambio_usd("CLP")
-    usd_ars = obtener_tipo_cambio_usd("ARS")
+    # Tipo de cambio oficiales (pueden actualizarse si querés usar otras fuentes)
+    usd_to_ars = 1200
+    usd_to_clp = 945
 
-    if usd_clp is None or usd_ars is None:
-        print("❌ No se pudo obtener tipo de cambio USD -> CLP o USD -> ARS")
-        return
-
-    # Convertimos CLP a USD y luego USD a ARS para valorar la ganancia final en ARS
-    usd_equivalente = clp_recibidos / usd_clp
-    valor_en_ars = usd_equivalente * usd_ars
+    usd_en_chile = clp_recibidos / usd_to_clp
+    valor_en_ars = usd_en_chile * usd_to_ars
 
     ganancia_ars = valor_en_ars - CANTIDAD_ARS
 
@@ -111,7 +107,7 @@ def home():
 def loop():
     while True:
         chequear_arbitraje()
-        time.sleep(300)  # 5 minutos
+        time.sleep(300)
 
 threading.Thread(target=loop, daemon=True).start()
 
